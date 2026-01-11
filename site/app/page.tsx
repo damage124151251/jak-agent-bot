@@ -1,41 +1,76 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
+import { useEffect, useState, useRef } from 'react'
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import { supabase, JakStatus, JakThought, Position, Trade, getJakStatus, getRecentThoughts, getOpenPositions, getRecentTrades, getTotalDistributed } from '@/lib/supabase'
 
-// Mood ASCII faces
-const MOOD_FACES: Record<string, { face: string, color: string, animation: string }> = {
-    'Euphoric': { face: '( ^_^ )', color: '#00ff00', animation: 'float' },
-    'Happy': { face: '( :) )', color: '#90EE90', animation: 'float' },
-    'Neutral': { face: '( :| )', color: '#ffff00', animation: '' },
-    'Worried': { face: '( :/ )', color: '#ffa500', animation: 'shake' },
-    'Doomer': { face: '( :( )', color: '#ff6666', animation: 'shake' },
-    'Pink Wojak': { face: '( X_X )', color: '#ff0066', animation: 'shake' }
+const MOOD_CONFIG: Record<string, { label: string, class: string }> = {
+    'Euphoric': { label: 'Euphoric', class: 'mood-euphoric' },
+    'Happy': { label: 'Happy', class: 'mood-happy' },
+    'Neutral': { label: 'Neutral', class: 'mood-neutral' },
+    'Worried': { label: 'Worried', class: 'mood-worried' },
+    'Doomer': { label: 'Doomer', class: 'mood-doomer' },
+    'Pink Wojak': { label: 'Distressed', class: 'mood-pinkwojak' }
 }
 
-// Window component
-function Win98Window({ title, children, className = '', icon = '📁' }: { title: string, children: React.ReactNode, className?: string, icon?: string }) {
+// Parallax Background Component
+function ParallaxBackground() {
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            setMousePosition({
+                x: (e.clientX / window.innerWidth - 0.5) * 30,
+                y: (e.clientY / window.innerHeight - 0.5) * 30
+            })
+        }
+        window.addEventListener('mousemove', handleMouseMove)
+        return () => window.removeEventListener('mousemove', handleMouseMove)
+    }, [])
+
     return (
-        <motion.div
-            className={`win98-window ${className}`}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-        >
-            <div className="win98-title">
-                <span>{icon} {title}</span>
-                <div className="win98-title-buttons">
-                    <div className="win98-btn">_</div>
-                    <div className="win98-btn">□</div>
-                    <div className="win98-btn">X</div>
-                </div>
-            </div>
-            <div className="win98-content">
-                {children}
-            </div>
-        </motion.div>
+        <div className="parallax-container">
+            <div className="grid-pattern" />
+            <motion.div
+                className="parallax-layer"
+                animate={{
+                    x: mousePosition.x * 0.5,
+                    y: mousePosition.y * 0.5
+                }}
+                transition={{ type: 'spring', stiffness: 50, damping: 30 }}
+            >
+                <div className="geo-shape geo-shape-1" />
+                <div className="geo-shape geo-shape-2" />
+            </motion.div>
+            <motion.div
+                className="parallax-layer"
+                animate={{
+                    x: mousePosition.x * 1,
+                    y: mousePosition.y * 1
+                }}
+                transition={{ type: 'spring', stiffness: 50, damping: 30 }}
+            >
+                <div className="geo-shape geo-shape-3" />
+                <div className="geo-shape geo-shape-4" />
+            </motion.div>
+            {/* Floating particles */}
+            {[...Array(20)].map((_, i) => (
+                <motion.div
+                    key={i}
+                    className="particle"
+                    style={{
+                        left: `${Math.random() * 100}%`,
+                        top: `${Math.random() * 100}%`,
+                        animationDelay: `${Math.random() * 15}s`
+                    }}
+                    animate={{
+                        x: mousePosition.x * (0.2 + Math.random() * 0.3),
+                        y: mousePosition.y * (0.2 + Math.random() * 0.3)
+                    }}
+                    transition={{ type: 'spring', stiffness: 30, damping: 20 }}
+                />
+            ))}
+        </div>
     )
 }
 
@@ -46,24 +81,18 @@ export default function Home() {
     const [trades, setTrades] = useState<Trade[]>([])
     const [distributed, setDistributed] = useState(0)
     const [loading, setLoading] = useState(true)
-    const [currentTime, setCurrentTime] = useState('')
+
+    const containerRef = useRef(null)
+    const { scrollYProgress } = useScroll({ target: containerRef })
+    const headerY = useTransform(scrollYProgress, [0, 0.2], [0, -50])
+    const headerOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0.8])
 
     useEffect(() => {
         loadData()
 
-        // Update time
-        const updateTime = () => {
-            setCurrentTime(new Date().toLocaleTimeString())
-        }
-        updateTime()
-        const timeInterval = setInterval(updateTime, 1000)
-
-        // Realtime subscriptions
         const statusChannel = supabase
             .channel('jak_status_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'jak_status' }, () => {
-                loadJakStatus()
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jak_status' }, () => loadJakStatus())
             .subscribe()
 
         const thoughtsChannel = supabase
@@ -75,16 +104,12 @@ export default function Home() {
 
         const positionsChannel = supabase
             .channel('positions_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'positions' }, () => {
-                loadPositions()
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'positions' }, () => loadPositions())
             .subscribe()
 
         const tradesChannel = supabase
             .channel('trades_changes')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trades' }, () => {
-                loadTrades()
-            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trades' }, () => loadTrades())
             .subscribe()
 
         const interval = setInterval(loadData, 30000)
@@ -95,400 +120,359 @@ export default function Home() {
             positionsChannel.unsubscribe()
             tradesChannel.unsubscribe()
             clearInterval(interval)
-            clearInterval(timeInterval)
         }
     }, [])
 
     async function loadData() {
-        await Promise.all([
-            loadJakStatus(),
-            loadThoughts(),
-            loadPositions(),
-            loadTrades(),
-            loadDistributed()
-        ])
+        await Promise.all([loadJakStatus(), loadThoughts(), loadPositions(), loadTrades(), loadDistributed()])
         setLoading(false)
     }
 
-    async function loadJakStatus() { const status = await getJakStatus(); setJakStatus(status) }
-    async function loadThoughts() { const data = await getRecentThoughts(20); setThoughts(data) }
-    async function loadPositions() { const data = await getOpenPositions(); setPositions(data) }
-    async function loadTrades() { const data = await getRecentTrades(20); setTrades(data) }
-    async function loadDistributed() { const total = await getTotalDistributed(); setDistributed(total) }
+    async function loadJakStatus() { setJakStatus(await getJakStatus()) }
+    async function loadThoughts() { setThoughts(await getRecentThoughts(20)) }
+    async function loadPositions() { setPositions(await getOpenPositions()) }
+    async function loadTrades() { setTrades(await getRecentTrades(20)) }
+    async function loadDistributed() { setDistributed(await getTotalDistributed()) }
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center crt">
-                <Win98Window title="Loading..." icon="⏳">
-                    <div className="text-center p-8">
-                        <div className="text-4xl mb-4 spin inline-block">@</div>
-                        <p className="text-xl">Loading Jak Agent...</p>
-                        <div className="mt-4">
-                            <span className="blink">█</span>
-                        </div>
-                    </div>
-                </Win98Window>
+            <div className="min-h-screen flex items-center justify-center">
+                <ParallaxBackground />
+                <motion.div
+                    className="main-content text-center"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                >
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-full border-4 border-gray-200 border-t-indigo-500 animate-spin" />
+                    <p className="text-gray-500 text-lg">Loading Jak Agent...</p>
+                </motion.div>
             </div>
         )
     }
 
     const mood = jakStatus?.mood || 'Neutral'
-    const moodData = MOOD_FACES[mood] || MOOD_FACES['Neutral']
+    const moodConfig = MOOD_CONFIG[mood] || MOOD_CONFIG['Neutral']
 
     return (
-        <main className="min-h-screen p-4 crt">
-            {/* Marquee Header */}
-            <div className="marquee-container mb-4">
-                <div className="marquee-text">
-                    ★★★ JAK AGENT - WOJAK TRADER BOT ★★★ TRADING LIVE ON SOLANA ★★★
-                    BALANCE: {(jakStatus?.balance_sol || 0).toFixed(4)} SOL ★★★
-                    TODAY PNL: {(jakStatus?.today_pnl || 0) >= 0 ? '+' : ''}{(jakStatus?.today_pnl || 0).toFixed(4)} SOL ★★★
-                    MOOD: {mood} ★★★ NOT FINANCIAL ADVICE ★★★
-                </div>
-            </div>
+        <div ref={containerRef} className="min-h-screen">
+            <ParallaxBackground />
 
-            {/* Header */}
-            <div className="text-center mb-6">
-                <motion.h1
-                    className="text-4xl md:text-6xl font-bold pixel-text rainbow mb-2"
-                    initial={{ y: -100 }}
-                    animate={{ y: 0 }}
-                    transition={{ type: 'spring', bounce: 0.5 }}
+            <main className="main-content max-w-7xl mx-auto px-4 py-8">
+                {/* Header */}
+                <motion.header
+                    className="text-center mb-12"
+                    style={{ y: headerY, opacity: headerOpacity }}
                 >
-                    JAK AGENT
-                </motion.h1>
-                <p className="text-xl glitch" data-text="~ wojak trader bot ~">~ wojak trader bot ~</p>
-                <div className="construction inline-block px-4 py-1 mt-2">
-                    <span className="text-black font-bold blink">🚧 LIVE TRADING 🚧</span>
-                </div>
-            </div>
-
-            {/* Main Grid */}
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-                {/* Left Column - Jak Status */}
-                <div className="lg:col-span-4 space-y-4">
-
-                    {/* Jak Avatar Window */}
-                    <Win98Window title="jak.exe" icon="👤">
-                        <div className="text-center">
-                            {/* Avatar */}
-                            <motion.div
-                                className={`relative inline-block ${moodData.animation}`}
-                                whileHover={{ scale: 1.1 }}
-                            >
-                                <div className="w-32 h-32 mx-auto mb-4 win98-inset p-2">
-                                    <img
-                                        src="https://media.discordapp.net/attachments/1417635370065072252/1459765948071547106/image.png?ex=6964787b&is=696326fb&hm=55375acccfdda59a161f9a9bfe03850112b0e34fea32b54a8cceb774a21bec11&=&format=webp&quality=lossless&width=1008&height=1008"
-                                        alt="Jak"
-                                        className="w-full h-full object-cover"
-                                        style={{ imageRendering: 'pixelated' }}
-                                    />
-                                </div>
-                            </motion.div>
-
-                            {/* Mood Face */}
-                            <motion.div
-                                className="text-4xl font-mono mb-2"
-                                style={{ color: moodData.color }}
-                                animate={{
-                                    scale: [1, 1.1, 1],
-                                    rotate: mood === 'Pink Wojak' ? [0, -5, 5, 0] : 0
-                                }}
-                                transition={{ repeat: Infinity, duration: 2 }}
-                            >
-                                {moodData.face}
-                            </motion.div>
-
-                            <div className="text-2xl font-bold" style={{ color: moodData.color }}>
-                                {mood.toUpperCase()}
-                            </div>
-
-                            {/* Mood Bar */}
-                            <div className="mt-2 win98-inset p-1">
-                                <div
-                                    className="h-4 transition-all duration-500"
-                                    style={{
-                                        width: `${jakStatus?.mood_score || 50}%`,
-                                        background: `linear-gradient(90deg, #ff0000, #ffff00, #00ff00)`,
-                                        backgroundSize: '200% 100%',
-                                        backgroundPosition: `${100 - (jakStatus?.mood_score || 50)}% 0`
-                                    }}
-                                />
-                            </div>
-                            <div className="text-sm mt-1">Mood Score: {jakStatus?.mood_score || 50}/100</div>
-                        </div>
-                    </Win98Window>
-
-                    {/* Thought Bubble */}
-                    <Win98Window title="jak_brain.txt" icon="💭">
+                    <motion.div
+                        initial={{ opacity: 0, y: -30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6 }}
+                    >
+                        {/* Avatar */}
                         <motion.div
-                            className="thought-bubble"
-                            key={jakStatus?.last_thought}
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
+                            className="avatar w-28 h-28 mx-auto mb-6"
+                            whileHover={{ scale: 1.05, rotate: 5 }}
+                            transition={{ type: 'spring', stiffness: 300 }}
                         >
-                            <p className="text-lg italic text-black">"{jakStatus?.last_thought || '...'}"</p>
+                            <img
+                                src="https://media.discordapp.net/attachments/1417635370065072252/1459765948071547106/image.png?ex=6964787b&is=696326fb&hm=55375acccfdda59a161f9a9bfe03850112b0e34fea32b54a8cceb774a21bec11&=&format=webp&quality=lossless&width=1008&height=1008"
+                                alt="Jak Agent"
+                            />
                         </motion.div>
-                    </Win98Window>
 
-                    {/* Stats */}
-                    <Win98Window title="stats.exe" icon="📊">
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between win98-inset p-1">
-                                <span>Status:</span>
-                                <span className={jakStatus?.status === 'TRADING' ? 'status-online blink' : 'status-offline'}>
-                                    ● {jakStatus?.status || 'OFFLINE'}
-                                </span>
-                            </div>
-                            <div className="flex justify-between win98-inset p-1">
-                                <span>Mode:</span>
-                                <span className="font-bold">{jakStatus?.mode || 'Normal'}</span>
-                            </div>
-                            <div className="flex justify-between win98-inset p-1">
-                                <span>Balance:</span>
-                                <span className="font-bold fire-text">{(jakStatus?.balance_sol || 0).toFixed(4)} SOL</span>
-                            </div>
-                            <div className="flex justify-between win98-inset p-1">
-                                <span>Today PnL:</span>
-                                <motion.span
-                                    className={`font-bold ${(jakStatus?.today_pnl || 0) >= 0 ? 'pnl-positive' : 'pnl-negative'}`}
-                                    animate={{ scale: [1, 1.1, 1] }}
-                                    transition={{ repeat: Infinity, duration: 1 }}
-                                >
-                                    {(jakStatus?.today_pnl || 0) >= 0 ? '+' : ''}{(jakStatus?.today_pnl || 0).toFixed(4)} SOL
-                                </motion.span>
-                            </div>
-                            <div className="flex justify-between win98-inset p-1">
-                                <span>Total PnL:</span>
-                                <span className={`font-bold ${(jakStatus?.total_pnl || 0) >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
-                                    {(jakStatus?.total_pnl || 0) >= 0 ? '+' : ''}{(jakStatus?.total_pnl || 0).toFixed(4)} SOL
-                                </span>
-                            </div>
-                            <div className="flex justify-between win98-inset p-1">
-                                <span>Daily Goal:</span>
-                                <span>{(jakStatus?.daily_goal || 0.2).toFixed(2)} SOL</span>
-                            </div>
-                            <div className="flex justify-between win98-inset p-1 bg-yellow-200">
-                                <span>💰 Distributed:</span>
-                                <span className="font-bold">{distributed.toFixed(2)} SOL</span>
-                            </div>
-                        </div>
-                    </Win98Window>
+                        <h1 className="text-4xl md:text-5xl font-bold mb-2">
+                            <span className="gradient-text">Jak Agent</span>
+                        </h1>
+                        <p className="text-gray-500 text-lg mb-4">AI-Powered Memecoin Trader</p>
 
-                    {/* Win Rate */}
-                    <Win98Window title="performance.dll" icon="🏆">
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                            <div className="win98-inset p-2">
-                                <div className="text-2xl font-bold">{jakStatus?.total_trades || 0}</div>
-                                <div className="text-xs">TRADES</div>
-                            </div>
-                            <div className="win98-inset p-2">
-                                <div className="text-2xl font-bold pnl-positive">{jakStatus?.wins || 0}</div>
-                                <div className="text-xs">WINS</div>
-                            </div>
-                            <div className="win98-inset p-2">
-                                <div className="text-2xl font-bold pnl-negative">{jakStatus?.losses || 0}</div>
-                                <div className="text-xs">LOSSES</div>
-                            </div>
+                        {/* Status Badge */}
+                        <div className={`status-badge ${jakStatus?.status === 'TRADING' ? 'status-online' : 'status-offline'} mx-auto`}>
+                            <span className="status-dot" />
+                            {jakStatus?.status === 'TRADING' ? 'Live Trading' : 'Offline'}
                         </div>
-                        <div className="mt-2 text-center win98-button w-full">
-                            <span className="text-xl font-bold rainbow">
-                                {(jakStatus?.win_rate || 0).toFixed(1)}% WIN RATE
-                            </span>
-                        </div>
-                    </Win98Window>
-                </div>
+                    </motion.div>
+                </motion.header>
 
-                {/* Middle Column - Thoughts Feed */}
-                <div className="lg:col-span-4">
-                    <Win98Window title="C:\JAK\BRAIN\thoughts.log" icon="🧠" className="h-full">
-                        <div className="win98-inset p-2 h-[600px] overflow-y-auto">
-                            <AnimatePresence>
-                                {thoughts.map((thought, index) => (
-                                    <motion.div
-                                        key={thought.id}
-                                        initial={{ opacity: 0, x: -50, rotateX: 90 }}
-                                        animate={{ opacity: 1, x: 0, rotateX: 0 }}
-                                        exit={{ opacity: 0, x: 50 }}
-                                        transition={{ delay: index * 0.05 }}
-                                        className="mb-2 p-2 bg-white border-2 border-black"
-                                    >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className={`text-xs px-2 py-0.5 ${
-                                                thought.type === 'buy' ? 'bg-green-500 text-white' :
-                                                thought.type === 'sell' ? 'bg-red-500 text-white' :
-                                                'bg-gray-300'
-                                            }`}>
-                                                {thought.type.toUpperCase()}
-                                            </span>
-                                            <span className="text-xs text-gray-500">
-                                                {new Date(thought.created_at).toLocaleTimeString()}
-                                            </span>
-                                        </div>
-                                        {thought.token_symbol && (
-                                            <div className="text-sm font-bold text-blue-600">
-                                                ${thought.token_symbol}
-                                            </div>
-                                        )}
-                                        <p className="text-sm text-black italic">"{thought.thought}"</p>
-                                        {thought.score !== undefined && (
-                                            <div className="mt-1 text-xs">
-                                                Score: <span className="font-bold">{thought.score}</span> | {thought.decision}
-                                            </div>
-                                        )}
-                                        {thought.pnl !== undefined && thought.pnl !== null && (
-                                            <motion.div
-                                                className={`mt-1 text-sm font-bold ${thought.pnl >= 0 ? 'pnl-positive' : 'pnl-negative'}`}
-                                                animate={{ scale: [1, 1.2, 1] }}
-                                            >
-                                                {thought.pnl >= 0 ? '📈' : '📉'} {thought.pnl >= 0 ? '+' : ''}{thought.pnl.toFixed(4)} SOL
-                                            </motion.div>
-                                        )}
-                                    </motion.div>
-                                ))}
-                            </AnimatePresence>
-                            {thoughts.length === 0 && (
-                                <div className="text-center text-gray-500 py-8">
-                                    <p>Jak is thinking...</p>
-                                    <span className="blink text-2xl">█</span>
+                {/* Stats Bar */}
+                <motion.div
+                    className="card glass mb-8"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                >
+                    <div className="card-body">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="stat-box">
+                                <div className="stat-value mono">{(jakStatus?.balance_sol || 0).toFixed(4)}</div>
+                                <div className="stat-label">Balance (SOL)</div>
+                            </div>
+                            <div className="stat-box">
+                                <div className={`stat-value mono ${(jakStatus?.today_pnl || 0) >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
+                                    {(jakStatus?.today_pnl || 0) >= 0 ? '+' : ''}{(jakStatus?.today_pnl || 0).toFixed(4)}
                                 </div>
-                            )}
+                                <div className="stat-label">Today PnL</div>
+                            </div>
+                            <div className="stat-box">
+                                <div className={`stat-value mono ${(jakStatus?.total_pnl || 0) >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
+                                    {(jakStatus?.total_pnl || 0) >= 0 ? '+' : ''}{(jakStatus?.total_pnl || 0).toFixed(4)}
+                                </div>
+                                <div className="stat-label">Total PnL</div>
+                            </div>
+                            <div className="stat-box">
+                                <div className="stat-value">{(jakStatus?.win_rate || 0).toFixed(0)}%</div>
+                                <div className="stat-label">Win Rate</div>
+                            </div>
+                            <div className="stat-box">
+                                <div className="stat-value pnl-positive">{distributed.toFixed(2)}</div>
+                                <div className="stat-label">Distributed</div>
+                            </div>
                         </div>
-                    </Win98Window>
-                </div>
+                    </div>
+                </motion.div>
 
-                {/* Right Column - Positions & Trades */}
-                <div className="lg:col-span-4 space-y-4">
+                {/* Main Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Column */}
+                    <div className="lg:col-span-4 space-y-6">
+                        {/* Mood & Status */}
+                        <motion.div
+                            className="card hover-lift"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <div className="card-header">Current State</div>
+                            <div className="card-body">
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="text-gray-500">Mood</span>
+                                    <span className={`mood-indicator ${moodConfig.class}`}>
+                                        {moodConfig.label}
+                                    </span>
+                                </div>
+                                <div className="mb-4">
+                                    <div className="flex justify-between text-sm mb-2">
+                                        <span className="text-gray-500">Mood Score</span>
+                                        <span className="font-medium">{jakStatus?.mood_score || 50}/100</span>
+                                    </div>
+                                    <div className="progress-bar">
+                                        <div
+                                            className="progress-fill"
+                                            style={{
+                                                width: `${jakStatus?.mood_score || 50}%`,
+                                                background: `linear-gradient(90deg, #ef4444, #f59e0b, #10b981)`,
+                                                backgroundSize: '200% 100%',
+                                                backgroundPosition: `${100 - (jakStatus?.mood_score || 50)}% 0`
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="text-gray-500">Mode</span>
+                                    <span className="font-semibold">{jakStatus?.mode || 'Normal'}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">Trades Today</span>
+                                    <span className="font-semibold">
+                                        {jakStatus?.wins || 0}W / {jakStatus?.losses || 0}L
+                                    </span>
+                                </div>
+                            </div>
+                        </motion.div>
 
-                    {/* Open Positions */}
-                    <Win98Window title="positions.exe" icon="📂">
-                        <div className="space-y-2 max-h-[250px] overflow-y-auto">
-                            {positions.map(position => (
+                        {/* Thought Bubble */}
+                        <motion.div
+                            className="card hover-lift"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.4 }}
+                        >
+                            <div className="card-header">Latest Thought</div>
+                            <div className="card-body">
                                 <motion.div
-                                    key={position.id}
-                                    className="win98-inset p-2"
-                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    className="thought-bubble"
+                                    key={jakStatus?.last_thought}
+                                    initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    whileHover={{ scale: 1.02 }}
                                 >
-                                    <div className="flex justify-between items-start">
+                                    "{jakStatus?.last_thought || 'Analyzing markets...'}"
+                                </motion.div>
+                            </div>
+                        </motion.div>
+
+                        {/* Wallet */}
+                        <motion.div
+                            className="card hover-lift"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.5 }}
+                        >
+                            <div className="card-header">Wallet</div>
+                            <div className="card-body">
+                                <div className="wallet-address">
+                                    {jakStatus?.wallet_address || 'Loading...'}
+                                </div>
+                                <p className="text-xs text-gray-400 mt-3 text-center">
+                                    Send SOL to fund trading
+                                </p>
+                            </div>
+                        </motion.div>
+                    </div>
+
+                    {/* Middle Column - Thoughts Feed */}
+                    <div className="lg:col-span-4">
+                        <motion.div
+                            className="card h-full"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <div className="card-header">Thought Stream</div>
+                            <div className="card-body h-[600px] overflow-y-auto">
+                                <AnimatePresence>
+                                    {thoughts.map((thought, index) => (
+                                        <motion.div
+                                            key={thought.id}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 20 }}
+                                            transition={{ delay: index * 0.03 }}
+                                            className="trade-item"
+                                        >
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className={`trade-type ${
+                                                        thought.type === 'buy' ? 'trade-buy' :
+                                                        thought.type === 'sell' ? 'trade-sell' : ''
+                                                    }`}>
+                                                        {thought.type === 'buy' ? 'B' :
+                                                         thought.type === 'sell' ? 'S' : 'T'}
+                                                    </span>
+                                                    {thought.token_symbol && (
+                                                        <span className="font-semibold text-sm">${thought.token_symbol}</span>
+                                                    )}
+                                                    <span className="text-xs text-gray-400 ml-auto">
+                                                        {new Date(thought.created_at).toLocaleTimeString()}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-600 italic">"{thought.thought}"</p>
+                                                {thought.pnl !== undefined && thought.pnl !== null && (
+                                                    <p className={`text-sm font-semibold mt-1 ${thought.pnl >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
+                                                        {thought.pnl >= 0 ? '+' : ''}{thought.pnl.toFixed(4)} SOL
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </AnimatePresence>
+                                {thoughts.length === 0 && (
+                                    <div className="text-center text-gray-400 py-12">
+                                        <p>Waiting for thoughts...</p>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="lg:col-span-4 space-y-6">
+                        {/* Open Positions */}
+                        <motion.div
+                            className="card hover-lift"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <div className="card-header">Open Positions</div>
+                            <div className="card-body max-h-[250px] overflow-y-auto">
+                                {positions.map(position => (
+                                    <motion.div
+                                        key={position.id}
+                                        className="trade-item"
+                                        whileHover={{ scale: 1.01 }}
+                                    >
                                         <div>
-                                            <div className="font-bold text-blue-600">
+                                            <div className="font-semibold">
                                                 ${position.tokens?.symbol || position.token_ca.slice(0, 8)}
                                             </div>
-                                            <div className="text-xs">
+                                            <div className="text-xs text-gray-400">
                                                 {position.amount_sol.toFixed(4)} SOL
                                             </div>
                                         </div>
-                                        <motion.div
-                                            className={`text-right font-bold ${position.pnl_percent >= 0 ? 'pnl-positive' : 'pnl-negative'}`}
-                                            animate={{
-                                                scale: position.pnl_percent > 50 || position.pnl_percent < -20 ? [1, 1.1, 1] : 1
-                                            }}
-                                            transition={{ repeat: Infinity, duration: 0.5 }}
-                                        >
-                                            <div>
+                                        <div className="text-right">
+                                            <div className={`font-semibold ${position.pnl_percent >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
                                                 {position.pnl_percent >= 0 ? '+' : ''}{position.pnl_percent?.toFixed(1) || 0}%
                                             </div>
-                                            <div className="text-xs">
-                                                {(position.pnl_sol || 0) >= 0 ? '+' : ''}{(position.pnl_sol || 0).toFixed(4)} SOL
+                                            <div className={`text-xs ${(position.pnl_sol || 0) >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
+                                                {(position.pnl_sol || 0) >= 0 ? '+' : ''}{(position.pnl_sol || 0).toFixed(4)}
                                             </div>
-                                        </motion.div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                                {positions.length === 0 && (
+                                    <div className="text-center text-gray-400 py-6">
+                                        No open positions
                                     </div>
-                                </motion.div>
-                            ))}
-                            {positions.length === 0 && (
-                                <div className="text-center text-gray-500 py-4">
-                                    No open positions
-                                </div>
-                            )}
-                        </div>
-                    </Win98Window>
-
-                    {/* Recent Trades */}
-                    <Win98Window title="trade_history.log" icon="📜">
-                        <div className="space-y-1 max-h-[300px] overflow-y-auto win98-inset p-1">
-                            {trades.map((trade, index) => (
-                                <motion.div
-                                    key={trade.id}
-                                    className="p-1 bg-white border border-gray-400 text-sm flex justify-between items-center"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.02 }}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <span className={`px-1 text-xs font-bold ${
-                                            trade.type === 'buy' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                                        }`}>
-                                            {trade.type === 'buy' ? '▲' : '▼'}
-                                        </span>
-                                        <span className="font-bold">${trade.tokens?.symbol || trade.token_ca.slice(0, 6)}</span>
-                                    </div>
-                                    <div className="text-right">
-                                        <div>{trade.amount_sol.toFixed(4)} SOL</div>
-                                        {trade.pnl_sol !== null && trade.pnl_sol !== undefined && (
-                                            <div className={`text-xs font-bold ${trade.pnl_sol >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
-                                                {trade.pnl_sol >= 0 ? '+' : ''}{trade.pnl_sol.toFixed(4)}
-                                            </div>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            ))}
-                            {trades.length === 0 && (
-                                <div className="text-center text-gray-500 py-4">
-                                    No trades yet
-                                </div>
-                            )}
-                        </div>
-                    </Win98Window>
-
-                    {/* Wallet */}
-                    <Win98Window title="wallet.dat" icon="💼">
-                        <div className="win98-inset p-2">
-                            <div className="text-xs text-gray-600 mb-1">Jak's Wallet Address:</div>
-                            <div className="font-mono text-xs break-all bg-black text-green-400 p-2">
-                                {jakStatus?.wallet_address || 'Loading...'}
+                                )}
                             </div>
-                            <div className="text-xs text-center mt-2 text-gray-500">
-                                Send SOL to fuel Jak's trading
-                            </div>
-                        </div>
-                    </Win98Window>
-                </div>
-            </div>
+                        </motion.div>
 
-            {/* Taskbar */}
-            <div className="fixed bottom-0 left-0 right-0 win98-window">
-                <div className="flex items-center justify-between px-2 py-1 striped-bg">
-                    <div className="flex items-center gap-2">
-                        <button className="win98-button text-sm flex items-center gap-1">
-                            <span>🪟</span> Start
-                        </button>
-                        <div className="win98-inset px-2 py-0.5 text-sm">
-                            📊 jak_agent.exe
-                        </div>
-                    </div>
-                    <div className="win98-inset px-2 py-0.5 text-sm">
-                        {currentTime}
+                        {/* Trade History */}
+                        <motion.div
+                            className="card hover-lift"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.4 }}
+                        >
+                            <div className="card-header">Recent Trades</div>
+                            <div className="card-body max-h-[300px] overflow-y-auto">
+                                {trades.map((trade, index) => (
+                                    <motion.div
+                                        key={trade.id}
+                                        className="trade-item"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: index * 0.02 }}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className={`trade-type ${trade.type === 'buy' ? 'trade-buy' : 'trade-sell'}`}>
+                                                {trade.type === 'buy' ? 'B' : 'S'}
+                                            </span>
+                                            <span className="font-medium">
+                                                ${trade.tokens?.symbol || trade.token_ca.slice(0, 6)}
+                                            </span>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-sm">{trade.amount_sol.toFixed(4)} SOL</div>
+                                            {trade.pnl_sol !== null && trade.pnl_sol !== undefined && (
+                                                <div className={`text-xs font-medium ${trade.pnl_sol >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
+                                                    {trade.pnl_sol >= 0 ? '+' : ''}{trade.pnl_sol.toFixed(4)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                ))}
+                                {trades.length === 0 && (
+                                    <div className="text-center text-gray-400 py-6">
+                                        No trades yet
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
                     </div>
                 </div>
-            </div>
 
-            {/* Footer spacer for taskbar */}
-            <div className="h-16"></div>
-
-            {/* Footer Links */}
-            <div className="text-center py-4 text-sm">
-                <a href="/privacy" className="win98-button mx-1 text-xs">Privacy</a>
-                <a href="/terms" className="win98-button mx-1 text-xs">Terms</a>
-                <p className="mt-2 text-white text-xs">
-                    ⚠️ Not financial advice. Trade at your own risk. ⚠️
-                </p>
-                <p className="text-white text-xs mt-1">
-                    Best viewed in Netscape Navigator 4.0
-                </p>
-            </div>
-        </main>
+                {/* Footer */}
+                <footer className="text-center mt-16 pb-8">
+                    <div className="flex items-center justify-center gap-6 mb-4">
+                        <a href="/privacy" className="footer-link">Privacy</a>
+                        <span className="text-gray-300">|</span>
+                        <a href="/terms" className="footer-link">Terms</a>
+                    </div>
+                    <p className="text-sm text-gray-400">
+                        Not financial advice. Trade at your own risk.
+                    </p>
+                </footer>
+            </main>
+        </div>
     )
 }
