@@ -5,67 +5,246 @@
 @import url('https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap');
 
 :root {
-    --jak-black: #0a0a0a;
-    --jak-dark: #1a1a1a;
-    --jak-gray: #2a2a2a;
-    --jak-light: #e0e0e0;
-    --jak-white: #f5f5f5;
-    --jak-green: #4ade80;
-    --jak-red: #f87171;
+    --win-bg: #008080;
+    --win-gray: #c0c0c0;
+    --win-dark: #808080;
+    --win-light: #dfdfdf;
+    --win-white: #ffffff;
+    --win-black: #000000;
+    --win-blue: #000080;
+    --win-title: #000080;
+    --jak-green: #00ff00;
+    --jak-red: #ff0000;
+    --jak-yellow: #ffff00;
 }
 
 * {
     box-sizing: border-box;
+    image-rendering: pixelated;
 }
 
 body {
-    background: var(--jak-black);
-    color: var(--jak-white);
-    font-family: 'VT323', 'Courier New', monospace;
+    background: var(--win-bg);
+    color: var(--win-black);
+    font-family: 'VT323', 'MS Sans Serif', 'Segoe UI', Tahoma, sans-serif;
     min-height: 100vh;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M0 0L0 14L4 10L7 16L9 15L6 9L11 9Z' fill='white' stroke='black'/%3E%3C/svg%3E"), auto;
 }
 
-/* Wojak/Trollface aesthetic */
-.wojak-border {
-    border: 3px solid var(--jak-white);
-    box-shadow: 4px 4px 0 var(--jak-white);
+/* Windows 98 Window */
+.win98-window {
+    background: var(--win-gray);
+    border: 2px solid;
+    border-color: var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+    box-shadow:
+        inset 1px 1px 0 var(--win-white),
+        inset -1px -1px 0 var(--win-black),
+        2px 2px 0 rgba(0,0,0,0.3);
 }
 
-.wojak-card {
-    background: var(--jak-dark);
-    border: 2px solid var(--jak-light);
+.win98-title {
+    background: linear-gradient(90deg, var(--win-blue), #1084d0);
+    color: white;
+    font-weight: bold;
+    padding: 3px 5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.win98-title-buttons {
+    display: flex;
+    gap: 2px;
+}
+
+.win98-btn {
+    width: 16px;
+    height: 14px;
+    background: var(--win-gray);
+    border: 2px solid;
+    border-color: var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.win98-btn:active {
+    border-color: var(--win-dark) var(--win-light) var(--win-light) var(--win-dark);
+}
+
+.win98-content {
+    padding: 10px;
+    background: var(--win-gray);
+}
+
+/* Inset panel */
+.win98-inset {
+    background: var(--win-white);
+    border: 2px solid;
+    border-color: var(--win-dark) var(--win-light) var(--win-light) var(--win-dark);
+    box-shadow: inset 1px 1px 0 var(--win-black);
+}
+
+/* Outset button */
+.win98-button {
+    background: var(--win-gray);
+    border: 2px solid;
+    border-color: var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+    padding: 4px 16px;
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 1px 1px 0 var(--win-black);
+}
+
+.win98-button:active {
+    border-color: var(--win-dark) var(--win-light) var(--win-light) var(--win-dark);
+    box-shadow: inset 1px 1px 0 var(--win-dark);
+}
+
+/* Marquee */
+.marquee-container {
+    overflow: hidden;
+    background: var(--win-black);
+    border: 2px solid;
+    border-color: var(--win-dark) var(--win-light) var(--win-light) var(--win-dark);
+}
+
+.marquee-text {
+    display: inline-block;
+    white-space: nowrap;
+    animation: marquee 15s linear infinite;
+    color: var(--jak-green);
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    padding: 5px 0;
+}
+
+@keyframes marquee {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+
+/* Blinking text */
+.blink {
+    animation: blink 1s step-start infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Rainbow text */
+.rainbow {
+    background: linear-gradient(90deg, red, orange, yellow, green, blue, purple);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: rainbow-shift 3s linear infinite;
+    background-size: 200% 100%;
+}
+
+@keyframes rainbow-shift {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+/* Glitch effect */
+.glitch {
     position: relative;
 }
 
-.wojak-card::before {
-    content: '';
+.glitch::before,
+.glitch::after {
+    content: attr(data-text);
     position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    background: linear-gradient(45deg, transparent 48%, var(--jak-light) 49%, var(--jak-light) 51%, transparent 52%);
-    background-size: 6px 6px;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.glitch::before {
+    animation: glitch-1 0.3s infinite;
+    color: #ff0000;
     z-index: -1;
-    opacity: 0.3;
 }
 
-/* Meme text effect */
-.meme-text {
-    font-family: 'Press Start 2P', cursive;
-    text-transform: uppercase;
-    letter-spacing: 2px;
+.glitch::after {
+    animation: glitch-2 0.3s infinite;
+    color: #0000ff;
+    z-index: -2;
 }
 
-/* Mood faces - ASCII style */
-.mood-face {
-    font-size: 3rem;
-    font-family: monospace;
-    line-height: 1;
+@keyframes glitch-1 {
+    0%, 100% { clip-path: inset(0 0 95% 0); transform: translate(-2px, 0); }
+    20% { clip-path: inset(20% 0 60% 0); transform: translate(2px, 0); }
+    40% { clip-path: inset(40% 0 40% 0); transform: translate(-2px, 0); }
+    60% { clip-path: inset(60% 0 20% 0); transform: translate(2px, 0); }
+    80% { clip-path: inset(80% 0 5% 0); transform: translate(-2px, 0); }
 }
 
-/* Scanlines effect */
-.scanlines::after {
+@keyframes glitch-2 {
+    0%, 100% { clip-path: inset(95% 0 0 0); transform: translate(2px, 0); }
+    20% { clip-path: inset(60% 0 20% 0); transform: translate(-2px, 0); }
+    40% { clip-path: inset(40% 0 40% 0); transform: translate(2px, 0); }
+    60% { clip-path: inset(20% 0 60% 0); transform: translate(-2px, 0); }
+    80% { clip-path: inset(5% 0 80% 0); transform: translate(2px, 0); }
+}
+
+/* Floating animation */
+.float {
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* Shake animation */
+.shake {
+    animation: shake 0.5s ease-in-out infinite;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px) rotate(-1deg); }
+    75% { transform: translateX(5px) rotate(1deg); }
+}
+
+/* Pulse glow */
+.pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 5px var(--jak-green), 0 0 10px var(--jak-green);
+    }
+    50% {
+        box-shadow: 0 0 20px var(--jak-green), 0 0 40px var(--jak-green);
+    }
+}
+
+/* Spin */
+.spin {
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* CRT effect */
+.crt::before {
     content: '';
     position: fixed;
     top: 0;
@@ -80,71 +259,134 @@ body {
         transparent 2px
     );
     pointer-events: none;
-    z-index: 1000;
+    z-index: 9999;
+}
+
+/* Under construction style */
+.construction {
+    background: repeating-linear-gradient(
+        45deg,
+        #ffcc00,
+        #ffcc00 10px,
+        #000000 10px,
+        #000000 20px
+    );
+    padding: 5px;
+}
+
+/* Comic style border */
+.comic-border {
+    border: 4px solid black;
+    box-shadow:
+        4px 4px 0 black,
+        inset 0 0 0 2px white;
 }
 
 /* Thought bubble */
 .thought-bubble {
     position: relative;
-    background: var(--jak-dark);
-    border: 2px solid var(--jak-light);
+    background: white;
+    border: 3px solid black;
     border-radius: 20px;
-    padding: 1rem;
+    padding: 15px;
 }
 
 .thought-bubble::before {
-    content: '...';
+    content: '';
     position: absolute;
     bottom: -20px;
+    left: 30px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border: 3px solid black;
+    border-radius: 50%;
+}
+
+.thought-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -35px;
     left: 20px;
-    font-size: 1.5rem;
-    color: var(--jak-light);
+    width: 12px;
+    height: 12px;
+    background: white;
+    border: 3px solid black;
+    border-radius: 50%;
 }
 
-/* PnL colors */
-.pnl-positive { color: var(--jak-green); }
-.pnl-negative { color: var(--jak-red); }
-
-/* Blink animation */
-@keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+/* Pixelated text */
+.pixel-text {
+    font-family: 'Press Start 2P', cursive;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
-.blink {
-    animation: blink 1s infinite;
-}
+/* Status colors */
+.status-online { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
+.status-offline { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
+.pnl-positive { color: #00ff00; }
+.pnl-negative { color: #ff0000; }
 
-/* Glitch effect */
-@keyframes glitch {
-    0% { transform: translate(0); }
-    20% { transform: translate(-2px, 2px); }
-    40% { transform: translate(-2px, -2px); }
-    60% { transform: translate(2px, 2px); }
-    80% { transform: translate(2px, -2px); }
-    100% { transform: translate(0); }
-}
-
-.glitch:hover {
-    animation: glitch 0.3s infinite;
-}
-
-/* Scrollbar */
+/* Scrollbar Win98 style */
 ::-webkit-scrollbar {
-    width: 8px;
+    width: 16px;
+    height: 16px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--jak-black);
+    background: var(--win-gray);
+    border: 1px solid var(--win-dark);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--jak-gray);
-    border: 1px solid var(--jak-light);
+    background: var(--win-gray);
+    border: 2px solid;
+    border-color: var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
 }
 
-/* Selection */
-::selection {
-    background: var(--jak-white);
-    color: var(--jak-black);
+::-webkit-scrollbar-button {
+    background: var(--win-gray);
+    border: 2px solid;
+    border-color: var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+}
+
+/* Fire effect text */
+.fire-text {
+    background: linear-gradient(0deg, #ff0000, #ff6600, #ffff00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fire 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes fire {
+    0% { filter: brightness(1); }
+    100% { filter: brightness(1.3); }
+}
+
+/* Matrix rain effect for bg */
+.matrix-bg {
+    background: linear-gradient(180deg,
+        rgba(0,0,0,0.9) 0%,
+        rgba(0,32,0,0.9) 100%
+    );
+}
+
+/* Mood faces styling */
+.mood-face {
+    font-family: monospace;
+    font-size: 2.5rem;
+    text-shadow: 2px 2px 0 #000;
+}
+
+/* Striped background */
+.striped-bg {
+    background: repeating-linear-gradient(
+        90deg,
+        #c0c0c0,
+        #c0c0c0 2px,
+        #a0a0a0 2px,
+        #a0a0a0 4px
+    );
 }

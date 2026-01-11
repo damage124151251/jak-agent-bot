@@ -2,14 +2,6 @@
 -- FIX REALTIME - Executar depois do schema
 -- ═══════════════════════════════════════════════════════════════
 
--- Remover e re-adicionar
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.jak_status;
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.tokens;
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.trades;
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.positions;
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.jak_thoughts;
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.distributions;
-
 -- REPLICA IDENTITY (obrigatorio para UPDATE/DELETE realtime)
 ALTER TABLE public.jak_status REPLICA IDENTITY FULL;
 ALTER TABLE public.tokens REPLICA IDENTITY FULL;
@@ -18,13 +10,42 @@ ALTER TABLE public.positions REPLICA IDENTITY FULL;
 ALTER TABLE public.jak_thoughts REPLICA IDENTITY FULL;
 ALTER TABLE public.distributions REPLICA IDENTITY FULL;
 
--- Adicionar ao realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.jak_status;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.tokens;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.trades;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.positions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.jak_thoughts;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.distributions;
+-- Adicionar ao realtime (ignora erro se ja existe)
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.jak_status;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.tokens;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.trades;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.positions;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.jak_thoughts;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.distributions;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- RLS
 ALTER TABLE public.jak_status ENABLE ROW LEVEL SECURITY;
@@ -49,17 +70,17 @@ CREATE POLICY "public_read" ON public.positions FOR SELECT USING (true);
 CREATE POLICY "public_read" ON public.jak_thoughts FOR SELECT USING (true);
 CREATE POLICY "public_read" ON public.distributions FOR SELECT USING (true);
 
--- Policies para insert/update (service role)
-DROP POLICY IF EXISTS "service_write" ON public.jak_status;
-DROP POLICY IF EXISTS "service_write" ON public.tokens;
-DROP POLICY IF EXISTS "service_write" ON public.trades;
-DROP POLICY IF EXISTS "service_write" ON public.positions;
-DROP POLICY IF EXISTS "service_write" ON public.jak_thoughts;
-DROP POLICY IF EXISTS "service_write" ON public.distributions;
+-- Policies para insert/update (permite tudo - bot usa service key)
+DROP POLICY IF EXISTS "allow_all" ON public.jak_status;
+DROP POLICY IF EXISTS "allow_all" ON public.tokens;
+DROP POLICY IF EXISTS "allow_all" ON public.trades;
+DROP POLICY IF EXISTS "allow_all" ON public.positions;
+DROP POLICY IF EXISTS "allow_all" ON public.jak_thoughts;
+DROP POLICY IF EXISTS "allow_all" ON public.distributions;
 
-CREATE POLICY "service_write" ON public.jak_status FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "service_write" ON public.tokens FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "service_write" ON public.trades FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "service_write" ON public.positions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "service_write" ON public.jak_thoughts FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "service_write" ON public.distributions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all" ON public.jak_status FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all" ON public.tokens FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all" ON public.trades FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all" ON public.positions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all" ON public.jak_thoughts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all" ON public.distributions FOR ALL USING (true) WITH CHECK (true);
