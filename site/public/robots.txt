@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jak-agent.vercel.app/sitemap.xml
